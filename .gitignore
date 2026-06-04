@@ -1,0 +1,9 @@
+build*/
+out/
+.vs/
+.vscode/
+models/*.onnx
+models/*.pt
+models/*.pth
+*.user
+*.log
