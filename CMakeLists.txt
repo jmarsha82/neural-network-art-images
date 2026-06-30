@@ -10,6 +10,7 @@ option(ARTNET_BUILD_APP "Build the Qt desktop application" ON)
 option(ARTNET_BUILD_TESTS "Build unit tests" ON)
 option(ARTNET_USE_MLPACK "Use mlpack for clustering when available" OFF)
 option(ARTNET_REQUIRE_MLPACK "Fail configuration if ARTNET_USE_MLPACK is ON and mlpack is not found" OFF)
+option(ARTNET_ENABLE_COVERAGE "Build core targets with coverage instrumentation" OFF)
 
 add_library(artnet_core
     src/ArtScanner.cpp
@@ -22,6 +23,15 @@ target_include_directories(artnet_core
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
+
+if(ARTNET_ENABLE_COVERAGE)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(artnet_core PRIVATE --coverage -O0 -g)
+        target_link_options(artnet_core PUBLIC --coverage)
+    else()
+        message(WARNING "ARTNET_ENABLE_COVERAGE is only configured for GCC/Clang.")
+    endif()
+endif()
 
 if(ARTNET_USE_MLPACK)
     find_package(mlpack CONFIG QUIET)
@@ -88,5 +98,12 @@ if(ARTNET_BUILD_TESTS)
     )
 
     target_link_libraries(artnet_core_tests PRIVATE artnet_core)
+    target_compile_options(artnet_core_tests PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/EHsc>)
+
+    if(ARTNET_ENABLE_COVERAGE AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(artnet_core_tests PRIVATE --coverage -O0 -g)
+        target_link_options(artnet_core_tests PRIVATE --coverage)
+    endif()
+
     add_test(NAME artnet_core_tests COMMAND artnet_core_tests)
 endif()

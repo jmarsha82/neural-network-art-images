@@ -80,13 +80,32 @@ windeployqt .\build\Release\artnet_desktop.exe
 
 ## Build Core Tests Without GUI/ML Dependencies
 
-The core test target avoids Qt and OpenCV so the data/index/export logic can be checked early:
+Unit tests live in the unified `tests/` directory. The current core test executable is `tests/CoreTests.cpp`, and it avoids Qt and OpenCV so the data/index/export logic can be checked early:
 
 ```powershell
 cmake -S . -B build-core -DARTNET_BUILD_APP=OFF
 cmake --build build-core
 ctest --test-dir build-core --output-on-failure
 ```
+
+To collect coverage with GCC or Clang, enable the coverage option and run `gcovr`:
+
+```powershell
+cmake -S . -B build-core -DARTNET_BUILD_APP=OFF -DARTNET_ENABLE_COVERAGE=ON -DCMAKE_BUILD_TYPE=Debug
+cmake --build build-core
+ctest --test-dir build-core --output-on-failure
+gcovr --root . --filter src/ --exclude tests/ --print-summary --fail-under-line 90
+```
+
+## CI Pipeline
+
+The GitHub Actions workflow in `.github/workflows/ci.yml` runs on pushes, pull requests, and manual dispatches. It is organized into:
+
+- **Unit Tests**: configures a GUI-free core build, runs `ctest`, produces coverage with `gcovr`, uploads the coverage report, and fails if line coverage drops below 90%.
+- **Code Scanning / Security**: runs GitHub CodeQL for C++ with the `security-extended` query suite.
+- **Code Scanning / Quality**: runs GitHub CodeQL for C++ with the `security-and-quality` query suite and publishes results under a separate quality category.
+
+CodeQL code scanning is free for public repositories. Private repository availability depends on the repository's GitHub plan and Advanced Security settings.
 
 ## Current Scope
 

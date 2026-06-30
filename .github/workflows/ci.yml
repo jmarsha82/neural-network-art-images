@@ -1,0 +1,138 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake gcovr ninja-build g++
+
+      - name: Configure core test build
+        run: >
+          cmake -S . -B build-core
+          -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DARTNET_BUILD_APP=OFF
+          -DARTNET_ENABLE_COVERAGE=ON
+
+      - name: Build core tests
+        run: cmake --build build-core
+
+      - name: Run unit tests
+        run: ctest --test-dir build-core --output-on-failure
+
+      - name: Enforce coverage
+        run: >
+          gcovr
+          --root .
+          --filter src/
+          --exclude tests/
+          --print-summary
+          --xml-pretty
+          --xml coverage.xml
+          --html-details coverage.html
+          --fail-under-line 90
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: |
+            coverage.xml
+            coverage*.html
+
+  code-scanning-security:
+    name: Code Scanning / Security
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL security analysis
+        uses: github/codeql-action/init@v3
+        with:
+          languages: c-cpp
+          queries: security-extended
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build g++
+
+      - name: Configure analyzable core build
+        run: >
+          cmake -S . -B build-codeql-security
+          -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DARTNET_BUILD_APP=OFF
+
+      - name: Build for CodeQL
+        run: cmake --build build-codeql-security
+
+      - name: Analyze security results
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/security"
+
+  code-scanning-quality:
+    name: Code Scanning / Quality
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL quality analysis
+        uses: github/codeql-action/init@v3
+        with:
+          languages: c-cpp
+          queries: security-and-quality
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build g++
+
+      - name: Configure analyzable core build
+        run: >
+          cmake -S . -B build-codeql-quality
+          -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DARTNET_BUILD_APP=OFF
+
+      - name: Build for CodeQL
+        run: cmake --build build-codeql-quality
+
+      - name: Analyze quality results
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/quality"
